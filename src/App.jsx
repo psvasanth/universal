@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Calendar, ChevronLeft, ChevronRight, X, Plus, Minus, Check, Trash2, Bell,
-  ListChecks, Settings, Palette, ChevronDown, Sparkles, ArrowRightLeft, Pencil, User
+  Calendar, ChevronLeft, ChevronRight, X, Plus, Check, Trash2, Bell,
+  ListChecks, Settings, Palette, Wifi, BatteryFull, SignalHigh,
+  ChevronDown, Sparkles, ArrowRightLeft
 } from "lucide-react";
 
 /* ---------- persistence ---------- */
@@ -35,25 +36,12 @@ const ACCENTS = {
   purple:  { name: "Deep purple", hex: "#a78bfa", soft: "rgba(167,139,250,0.16)" },
 };
 
-const COLOR_PALETTE = {
-  purple: { hex: "#a78bfa", text: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/30" },
-  blue:   { hex: "#60a5fa", text: "text-blue-300",   bg: "bg-blue-500/15",   border: "border-blue-500/30" },
-  emerald:{ hex: "#34d399", text: "text-emerald-300",bg: "bg-emerald-500/15",border: "border-emerald-500/30" },
-  amber:  { hex: "#fbbf24", text: "text-amber-300",  bg: "bg-amber-500/15",  border: "border-amber-500/30" },
-  cyan:   { hex: "#22d3ee", text: "text-cyan-300",   bg: "bg-cyan-500/15",   border: "border-cyan-500/30" },
-  rose:   { hex: "#fb7185", text: "text-rose-300",   bg: "bg-rose-500/15",   border: "border-rose-500/30" },
-  orange: { hex: "#fb923c", text: "text-orange-300", bg: "bg-orange-500/15", border: "border-orange-500/30" },
-  pink:   { hex: "#f472b6", text: "text-pink-300",   bg: "bg-pink-500/15",   border: "border-pink-500/30" },
+const CATEGORIES = {
+  Bill:     { text: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/30" },
+  Personal: { text: "text-blue-300",   bg: "bg-blue-500/15",   border: "border-blue-500/30" },
+  Work:     { text: "text-emerald-300",bg: "bg-emerald-500/15",border: "border-emerald-500/30" },
+  Health:   { text: "text-amber-300",  bg: "bg-amber-500/15",  border: "border-amber-500/30" },
 };
-const FALLBACK_CAT_STYLE = { text: "text-zinc-300", bg: "bg-zinc-500/15", border: "border-zinc-500/30" };
-
-const DEFAULT_CATEGORIES = [
-  { id: 1, name: "Bill", color: "purple" },
-  { id: 2, name: "Personal", color: "blue" },
-  { id: 3, name: "Work", color: "emerald" },
-  { id: 4, name: "Health", color: "amber" },
-  { id: 5, name: "Recharge", color: "cyan" },
-];
 
 const QUADRANTS = [
   { key: "do",       label: "Do",       sub: "Urgent & important",        dot: "bg-emerald-400", text: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10" },
@@ -106,9 +94,12 @@ function fmtDate(d) {
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
-function categoryStyle(categories, name) {
-  const cat = categories.find((c) => c.name === name);
-  return cat ? COLOR_PALETTE[cat.color] : FALLBACK_CAT_STYLE;
+function fmtClock(d) {
+  let h = d.getHours();
+  const m = pad(d.getMinutes());
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
 }
 
 let idCounter = 1000;
@@ -123,7 +114,7 @@ const INITIAL_EVENTS = [
   { id: nextId(), title: "Dental checkup", category: "Health", due: addDays(NOW0, -1).toISOString(), status: "pending" },
   { id: nextId(), title: "LIC premium payment", category: "Bill", due: addDays(NOW0, 4).toISOString(), status: "pending" },
   { id: nextId(), title: "Anniversary dinner", category: "Personal", due: addDays(NOW0, 12).toISOString(), status: "pending" },
-  { id: nextId(), title: "Mobile recharge", category: "Recharge", due: addDays(NOW0, 6).toISOString(), status: "pending" },
+  { id: nextId(), title: "Car insurance renewal", category: "Bill", due: addDays(NOW0, 25).toISOString(), status: "pending" },
 ];
 
 const INITIAL_NOTES = {
@@ -135,25 +126,52 @@ const INITIAL_NOTES = {
 
 const INITIAL_TASKS = {
   do: [
-    { id: nextId(), text: "Finish ward round notes", done: false },
-    { id: nextId(), text: "Call back patient re: reports", done: false },
+    { id: nextId(), text: "Finish ward round notes" },
+    { id: nextId(), text: "Call back patient re: reports" },
   ],
   schedule: [
-    { id: nextId(), text: "Revise Harrison's Ch.12, Endocrine", done: false },
-    { id: nextId(), text: "Plan NEET SS mock schedule", done: false },
+    { id: nextId(), text: "Revise Harrison's Ch.12, Endocrine" },
+    { id: nextId(), text: "Plan NEET SS mock schedule" },
   ],
   delegate: [
-    { id: nextId(), text: "Ask intern to update vitals chart", done: false },
+    { id: nextId(), text: "Ask intern to update vitals chart" },
   ],
   delete: [
-    { id: nextId(), text: "Reorganize old lecture PDFs", done: false },
-    { id: nextId(), text: "Clean up gallery screenshots", done: false },
+    { id: nextId(), text: "Reorganize old lecture PDFs" },
+    { id: nextId(), text: "Clean up gallery screenshots" },
   ],
 };
 
-const INITIAL_SETTINGS = { name: "Dharani", aim: "Clear DNB, General Medicine", accent: "emerald", notifications: true };
+const INITIAL_SETTINGS = { name: "Dharani", role: "PG resident, general medicine", accent: "emerald", notifications: true };
 
-/* ---------- shared pieces ---------- */
+/* ---------- small shared pieces ---------- */
+
+function StatusBar({ now }) {
+  return (
+    <div className="flex items-center justify-between px-5 pt-3 pb-1 text-[11px] text-zinc-400 shrink-0" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+      <span className="font-semibold tabular-nums text-zinc-300">{fmtClock(now)}</span>
+      <div className="flex items-center gap-1.5">
+        <SignalHigh size={13} />
+        <Wifi size={13} />
+        <BatteryFull size={15} />
+      </div>
+    </div>
+  );
+}
+
+function ScreenHeader({ icon: Icon, title, subtitle, accent }) {
+  return (
+    <div className="px-5 pt-2 pb-4">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: accent.soft }}>
+          <Icon size={16} style={{ color: accent.hex }} />
+        </div>
+        <h1 className="text-xl font-extrabold tracking-tight text-zinc-50">{title}</h1>
+      </div>
+      {subtitle && <p className="text-xs text-zinc-500 mt-1 ml-10">{subtitle}</p>}
+    </div>
+  );
+}
 
 function SplashScreen({ visible }) {
   return (
@@ -179,25 +197,6 @@ function Toast({ message }) {
   );
 }
 
-function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="mb-5">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5"
-      >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon size={15} className="text-zinc-400" />}
-          <span className="text-sm font-bold text-zinc-100">{title}</span>
-        </div>
-        {open ? <Minus size={16} className="text-zinc-500" /> : <Plus size={16} className="text-zinc-500" />}
-      </button>
-      {open && <div className="mt-2">{children}</div>}
-    </div>
-  );
-}
-
 /* ---------- Calendar ---------- */
 
 function CalendarView({ notes, events, accent, onOpenDay }) {
@@ -218,11 +217,11 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
     return events.some((e) => e.status !== "done" && sameDay(new Date(e.due), d));
   }
 
-  const rowCount = cells.length / 7;
-
   return (
-    <div className="animate-fadeslide pt-5 h-full flex flex-col">
-      <div className="mx-5 mb-4 flex items-center justify-between shrink-0">
+    <div className="animate-fadeslide">
+      <ScreenHeader icon={Calendar} title="Calendar" subtitle="Tap a date to view or add notes" accent={accent} />
+
+      <div className="mx-5 mb-4 flex items-center justify-between">
         <button onClick={() => shiftMonth(-1)} className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center active:scale-95 transition">
           <ChevronLeft size={18} className="text-zinc-300" />
         </button>
@@ -232,49 +231,44 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
         </button>
       </div>
 
-      <div className="mx-5 grid grid-cols-7 gap-y-1 mb-1 shrink-0">
+      <div className="mx-5 grid grid-cols-7 gap-y-1 mb-1">
         {WEEKDAYS.map((w, i) => (
           <div key={i} className="text-center text-[11px] font-semibold text-zinc-600 py-1">{w}</div>
         ))}
       </div>
 
-      <div className="mx-5 mb-5 flex-1 min-h-0 flex items-center">
-        <div
-          className="grid grid-cols-7 gap-1.5 w-full"
-          style={{ gridTemplateRows: `repeat(${rowCount}, minmax(0, 72px))` }}
-        >
-          {cells.map((d, i) => {
-            if (!d) return <div key={i} />;
-            const isToday = sameDay(d, today);
-            const hasNote = dayHasNote(d);
-            const hasEvent = dayHasEvent(d);
-            return (
-              <button
-                key={i}
-                onClick={() => onOpenDay(d)}
-                className="h-full rounded-xl flex flex-col items-center justify-center gap-1 border transition active:scale-95"
-                style={{
-                  backgroundColor: isToday ? accent.soft : "rgb(24 24 27)",
-                  borderColor: isToday ? accent.hex : "rgb(39 39 42)",
-                }}
-              >
-                <span className={`text-base font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
-                  {d.getDate()}
-                </span>
-                <div className="flex gap-0.5 h-1.5">
-                  {hasNote && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                  {hasEvent && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent.hex }} />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      <div className="mx-5 grid grid-cols-7 gap-1.5 pb-6">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} className="aspect-square" />;
+          const isToday = sameDay(d, today);
+          const hasNote = dayHasNote(d);
+          const hasEvent = dayHasEvent(d);
+          return (
+            <button
+              key={i}
+              onClick={() => onOpenDay(d)}
+              className="aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5 border transition active:scale-95"
+              style={{
+                backgroundColor: isToday ? accent.soft : "rgb(24 24 27)",
+                borderColor: isToday ? accent.hex : "rgb(39 39 42)",
+              }}
+            >
+              <span className={`text-sm font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
+                {d.getDate()}
+              </span>
+              <div className="flex gap-0.5 h-1">
+                {hasNote && <span className="w-1 h-1 rounded-full bg-blue-400" />}
+                {hasEvent && <span className="w-1 h-1 rounded-full" style={{ backgroundColor: accent.hex }} />}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function DateSheet({ date, notes, events, categories, onAddNote, onDeleteNote, onClose, accent }) {
+function DateSheet({ date, notes, events, onAddNote, onDeleteNote, onClose, accent }) {
   const [text, setText] = useState("");
   if (!date) return null;
   const key = dateKey(date);
@@ -305,7 +299,7 @@ function DateSheet({ date, notes, events, categories, onAddNote, onDeleteNote, o
               <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-2">Events due</p>
               <div className="flex flex-col gap-2">
                 {dayEvents.map((e) => {
-                  const cat = categoryStyle(categories, e.category);
+                  const cat = CATEGORIES[e.category];
                   return (
                     <div key={e.id} className={`px-3 py-2 rounded-xl border ${cat.border} ${cat.bg} text-sm font-medium ${cat.text}`}>
                       {e.title}
@@ -386,11 +380,11 @@ function CountdownRing({ due, now }) {
   );
 }
 
-function EventCard({ event, now, categories, onComplete, onDelete }) {
+function EventCard({ event, now, onComplete, onDelete }) {
   const [dragX, setDragX] = useState(0);
   const dragging = useRef(false);
   const startX = useRef(0);
-  const cat = categoryStyle(categories, event.category);
+  const cat = CATEGORIES[event.category];
   const due = new Date(event.due);
 
   function down(e) { dragging.current = true; startX.current = e.clientX; }
@@ -440,156 +434,60 @@ function EventCard({ event, now, categories, onComplete, onDelete }) {
   );
 }
 
-function CategoryManagerSheet({ categories, onAdd, onRename, onDelete, onClose }) {
-  const [newName, setNewName] = useState("");
-  const [newColor, setNewColor] = useState("purple");
-  const [editingId, setEditingId] = useState(null);
-  const [editText, setEditText] = useState("");
-
-  function submitNew() {
-    if (!newName.trim()) return;
-    onAdd(newName.trim(), newColor);
-    setNewName("");
-  }
-  function startEdit(cat) { setEditingId(cat.id); setEditText(cat.name); }
-  function submitEdit() {
-    if (editText.trim()) onRename(editingId, editText.trim());
-    setEditingId(null);
-  }
-
-  return (
-    <div className="absolute inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 pb-7 animate-sheetup max-h-[85%] flex flex-col" style={{ paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))" }}>
-        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-zinc-50">Categories</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-            <X size={16} className="text-zinc-400" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 -mx-1 px-1 flex flex-col gap-2 mb-4">
-          {categories.map((cat) => {
-            const pal = COLOR_PALETTE[cat.color];
-            return (
-              <div key={cat.id} className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${pal.border} ${pal.bg}`}>
-                {editingId === cat.id ? (
-                  <input
-                    autoFocus value={editText} onChange={(e) => setEditText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && submitEdit()} onBlur={submitEdit}
-                    className="flex-1 bg-transparent outline-none text-sm font-semibold text-zinc-100"
-                  />
-                ) : (
-                  <button onClick={() => startEdit(cat)} className={`text-sm font-semibold ${pal.text} text-left`}>{cat.name}</button>
-                )}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => startEdit(cat)} className="w-7 h-7 rounded-lg bg-zinc-900/60 flex items-center justify-center">
-                    <Pencil size={12} className="text-zinc-400" />
-                  </button>
-                  <button onClick={() => onDelete(cat.id)} className="w-7 h-7 rounded-lg bg-zinc-900/60 flex items-center justify-center">
-                    <Trash2 size={12} className="text-zinc-500" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          {categories.length === 0 && <p className="text-xs text-zinc-600 italic py-2">No categories yet — add one below.</p>}
-        </div>
-
-        <div className="flex flex-col gap-2 pt-3 shrink-0 border-t border-zinc-800">
-          <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">Add category</p>
-          <input
-            value={newName} onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submitNew()}
-            placeholder='e.g. "Recharge"'
-            className="bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-600"
-          />
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(COLOR_PALETTE).map(([key, pal]) => (
-              <button
-                key={key} onClick={() => setNewColor(key)}
-                className="w-8 h-8 rounded-full border-2"
-                style={{ backgroundColor: pal.hex, borderColor: newColor === key ? "#e4e4e7" : "transparent" }}
-              />
-            ))}
-          </div>
-          <button onClick={submitNew} className="py-2.5 rounded-xl text-zinc-950 text-sm font-bold mt-1" style={{ backgroundColor: COLOR_PALETTE[newColor].hex }}>
-            Add category
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EventsView({ events, now, accent, categories, onAdd, onComplete, onDelete, onAddCategory, onRenameCategory, onDeleteCategory }) {
+function EventsView({ events, now, accent, onAdd, onComplete, onDelete }) {
   const [showForm, setShowForm] = useState(false);
-  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState(categories[0]?.name || "");
+  const [category, setCategory] = useState("Bill");
   const [dueDate, setDueDate] = useState("");
 
   function submit() {
-    if (!title.trim() || !dueDate || !category) return;
+    if (!title.trim() || !dueDate) return;
     const due = new Date(dueDate);
     due.setHours(18, 0, 0, 0);
     onAdd({ title: title.trim(), category, due: due.toISOString(), status: "pending" });
-    setTitle(""); setDueDate(""); setShowForm(false);
+    setTitle(""); setDueDate(""); setCategory("Bill"); setShowForm(false);
   }
 
   const pending = [...events].filter((e) => e.status !== "done").sort((a, b) => new Date(a.due) - new Date(b.due));
   const done = [...events].filter((e) => e.status === "done");
 
   return (
-    <div className="animate-fadeslide pb-4 pt-5">
-      <div className="mx-5 mb-4 flex items-center gap-2">
+    <div className="animate-fadeslide pb-4">
+      <ScreenHeader icon={Bell} title="Event tracker" subtitle="Never miss a deadline" accent={accent} />
+
+      <div className="mx-5 mb-4">
         {!showForm ? (
-          <button onClick={() => setShowForm(true)} className="flex-1 py-3 rounded-2xl border border-dashed border-zinc-700 text-zinc-400 text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.99] transition">
+          <button onClick={() => setShowForm(true)} className="w-full py-3 rounded-2xl border border-dashed border-zinc-700 text-zinc-400 text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.99] transition">
             <Plus size={16} /> Add event
           </button>
         ) : (
-          <div className="flex-1" />
-        )}
-        <button onClick={() => setShowCategoryManager(true)} className="w-11 h-11 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-          <Pencil size={16} className="text-zinc-400" />
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="mx-5 mb-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
-          <input
-            value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder='e.g. "LIC Premium Payment"'
-            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-600"
-          />
-          <div className="flex gap-1.5 flex-wrap">
-            {categories.map((c) => {
-              const pal = COLOR_PALETTE[c.color];
-              const selected = category === c.name;
-              return (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
+            <input
+              value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder='e.g. "LIC Premium Payment"'
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-600"
+            />
+            <div className="grid grid-cols-4 gap-1.5">
+              {Object.keys(CATEGORIES).map((c) => (
                 <button
-                  key={c.id} onClick={() => setCategory(c.name)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border ${selected ? `${pal.border} ${pal.bg} ${pal.text}` : "border-zinc-800 text-zinc-500"}`}
+                  key={c} onClick={() => setCategory(c)}
+                  className={`py-2 rounded-lg text-[11px] font-semibold border ${category === c ? `${CATEGORIES[c].border} ${CATEGORIES[c].bg} ${CATEGORIES[c].text}` : "border-zinc-800 text-zinc-500"}`}
                 >
-                  {c.name}
+                  {c}
                 </button>
-              );
-            })}
-            <button onClick={() => setShowCategoryManager(true)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold border border-dashed border-zinc-700 text-zinc-500">
-              + New
-            </button>
+              ))}
+            </div>
+            <input
+              type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-3 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-semibold">Cancel</button>
+              <button onClick={submit} className="flex-1 py-2.5 rounded-xl text-zinc-950 text-sm font-bold" style={{ backgroundColor: accent.hex }}>Save</button>
+            </div>
           </div>
-          <input
-            type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-3 text-sm text-zinc-100 outline-none focus:border-zinc-600"
-          />
-          <div className="flex gap-2">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-semibold">Cancel</button>
-            <button onClick={submit} className="flex-1 py-2.5 rounded-xl text-zinc-950 text-sm font-bold" style={{ backgroundColor: accent.hex }}>Save</button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="mx-5">
         {pending.length === 0 && done.length === 0 && (
@@ -599,69 +497,34 @@ function EventsView({ events, now, accent, categories, onAdd, onComplete, onDele
           </div>
         )}
         {pending.map((e) => (
-          <EventCard key={e.id} event={e} now={now} categories={categories} onComplete={onComplete} onDelete={onDelete} />
+          <EventCard key={e.id} event={e} now={now} onComplete={onComplete} onDelete={onDelete} />
         ))}
         {done.length > 0 && (
           <>
             <p className="text-[11px] uppercase tracking-wide text-zinc-600 font-semibold mt-2 mb-2">Completed</p>
             {done.map((e) => (
-              <EventCard key={e.id} event={e} now={now} categories={categories} onComplete={onComplete} onDelete={onDelete} />
+              <EventCard key={e.id} event={e} now={now} onComplete={onComplete} onDelete={onDelete} />
             ))}
           </>
         )}
       </div>
-
-      {showCategoryManager && (
-        <CategoryManagerSheet
-          categories={categories}
-          onAdd={(name, color) => { onAddCategory(name, color); setCategory(name); }}
-          onRename={onRenameCategory}
-          onDelete={onDeleteCategory}
-          onClose={() => setShowCategoryManager(false)}
-        />
-      )}
     </div>
   );
 }
 
 /* ---------- Task manager ---------- */
 
-function TaskRow({ task, currentKey, onMove, onDelete, onToggleDone }) {
+function TaskRow({ task, currentKey, onMove, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const confirmTimer = useRef(null);
-
-  useEffect(() => () => clearTimeout(confirmTimer.current), []);
-
-  function handleDeleteClick() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      confirmTimer.current = setTimeout(() => setConfirmDelete(false), 2500);
-    } else {
-      clearTimeout(confirmTimer.current);
-      onDelete(currentKey, task.id);
-    }
-  }
-
   return (
-    <div className="relative flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-xl px-3 py-2.5 mb-2 gap-2">
-      <button
-        onClick={() => onToggleDone(currentKey, task.id)}
-        className={`w-6 h-6 rounded-full flex items-center justify-center border shrink-0 ${task.done ? "bg-emerald-500/25 border-emerald-500/50" : "border-zinc-700"}`}
-      >
-        {task.done && <Check size={13} className="text-emerald-400" />}
-      </button>
-      <span className={`text-sm flex-1 ${task.done ? "text-zinc-500 line-through" : "text-zinc-200"}`}>{task.text}</span>
-      {confirmDelete && <span className="text-[11px] font-semibold text-rose-400 shrink-0">Abort?</span>}
+    <div className="relative flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-xl px-3 py-2.5 mb-2">
+      <span className="text-sm text-zinc-200 flex-1 pr-2">{task.text}</span>
       <div className="flex items-center gap-1 shrink-0">
         <button onClick={() => setMenuOpen((v) => !v)} className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center">
           <ArrowRightLeft size={12} className="text-zinc-400" />
         </button>
-        <button
-          onClick={handleDeleteClick}
-          className={`w-7 h-7 rounded-lg flex items-center justify-center ${confirmDelete ? "bg-rose-500/25 border border-rose-500/50" : "bg-zinc-800"}`}
-        >
-          <Trash2 size={12} className={confirmDelete ? "text-rose-400" : "text-zinc-500"} />
+        <button onClick={() => onDelete(currentKey, task.id)} className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center">
+          <Trash2 size={12} className="text-zinc-500" />
         </button>
       </div>
       {menuOpen && (
@@ -681,16 +544,13 @@ function TaskRow({ task, currentKey, onMove, onDelete, onToggleDone }) {
   );
 }
 
-function QuadrantSection({ q, tasks, expanded, onToggle, onAdd, onMove, onDelete, onToggleDone }) {
+function QuadrantSection({ q, tasks, expanded, onToggle, onAdd, onMove, onDelete }) {
   const [text, setText] = useState("");
   function submit() {
     if (!text.trim()) return;
     onAdd(q.key, text.trim());
     setText("");
   }
-  const sorted = [...tasks].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
-  const pendingCount = tasks.filter((t) => !t.done).length;
-
   return (
     <div className={`rounded-2xl border ${q.border} ${q.bg} mb-3 overflow-hidden`}>
       <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3.5">
@@ -702,15 +562,15 @@ function QuadrantSection({ q, tasks, expanded, onToggle, onAdd, onMove, onDelete
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-zinc-400 bg-zinc-900/70 rounded-full px-2 py-0.5">{pendingCount}</span>
+          <span className="text-xs font-semibold text-zinc-400 bg-zinc-900/70 rounded-full px-2 py-0.5">{tasks.length}</span>
           <ChevronDown size={16} className={`text-zinc-500 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </div>
       </button>
       {expanded && (
         <div className="px-4 pb-4 pt-1">
-          {sorted.length === 0 && <p className="text-xs text-zinc-600 italic mb-2">Nothing here.</p>}
-          {sorted.map((t) => (
-            <TaskRow key={t.id} task={t} currentKey={q.key} onMove={onMove} onDelete={onDelete} onToggleDone={onToggleDone} />
+          {tasks.length === 0 && <p className="text-xs text-zinc-600 italic mb-2">Nothing here.</p>}
+          {tasks.map((t) => (
+            <TaskRow key={t.id} task={t} currentKey={q.key} onMove={onMove} onDelete={onDelete} />
           ))}
           <div className="flex items-center gap-2 mt-2">
             <input
@@ -729,31 +589,18 @@ function QuadrantSection({ q, tasks, expanded, onToggle, onAdd, onMove, onDelete
   );
 }
 
-function TasksView({ tasks, accent, onAdd, onMove, onDelete, onToggleDone }) {
+function TasksView({ tasks, accent, onAdd, onMove, onDelete }) {
   const [expanded, setExpanded] = useState("do");
-  const allTasks = Object.values(tasks).flat();
-  const completedCount = allTasks.filter((t) => t.done).length;
-  const totalCount = allTasks.length;
-
   return (
-    <div className="animate-fadeslide pb-4 pt-5">
-      <div className="mx-5 mb-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: accent.soft }}>
-          <Sparkles size={18} style={{ color: accent.hex }} />
-        </div>
-        <div key={completedCount} className="animate-fadeslide">
-          <p className="text-sm font-bold text-zinc-100">{completedCount} of {totalCount} tasks completed</p>
-          <p className="text-[11px] text-zinc-500">Tick tasks off as you finish them</p>
-        </div>
-      </div>
-
+    <div className="animate-fadeslide pb-4">
+      <ScreenHeader icon={ListChecks} title="Task manager" subtitle="Eisenhower matrix" accent={accent} />
       <div className="mx-5">
         {QUADRANTS.map((q) => (
           <QuadrantSection
             key={q.key} q={q} tasks={tasks[q.key]}
             expanded={expanded === q.key}
             onToggle={() => setExpanded(expanded === q.key ? null : q.key)}
-            onAdd={onAdd} onMove={onMove} onDelete={onDelete} onToggleDone={onToggleDone}
+            onAdd={onAdd} onMove={onMove} onDelete={onDelete}
           />
         ))}
       </div>
@@ -775,58 +622,13 @@ function ToggleSwitch({ checked, onChange, accent }) {
   );
 }
 
-function ProfileForm({ settings, onSave, accent }) {
-  const [name, setName] = useState(settings.name);
-  const [aim, setAim] = useState(settings.aim);
-  const [saved, setSaved] = useState(false);
-  const savedTimer = useRef(null);
-
-  useEffect(() => () => clearTimeout(savedTimer.current), []);
-
-  function handleSave() {
-    onSave({ name, aim });
-    setSaved(true);
-    savedTimer.current = setTimeout(() => setSaved(false), 1500);
-  }
-
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
-      <div className="flex items-center gap-3 mb-1">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-zinc-950" style={{ backgroundColor: accent.hex }}>
-          {(name || "?").charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <p className="text-sm font-bold text-zinc-100">{name || "Your name"}</p>
-          <p className="text-xs text-zinc-500">{aim}</p>
-        </div>
-      </div>
-      <label className="text-xs text-zinc-500 font-medium">Name</label>
-      <input
-        value={name} onChange={(e) => setName(e.target.value)}
-        className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 -mt-2"
-      />
-      <label className="text-xs text-zinc-500 font-medium">Aim</label>
-      <input
-        value={aim} onChange={(e) => setAim(e.target.value)}
-        placeholder="e.g. Clear DNB, General Medicine"
-        className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 -mt-2"
-      />
-      <button
-        onClick={handleSave}
-        className="py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 mt-1"
-        style={{ backgroundColor: saved ? "rgb(39 39 42)" : accent.hex, color: saved ? "#d4d4d8" : "#09090b" }}
-      >
-        {saved && <Check size={15} />} {saved ? "Saved" : "Save"}
-      </button>
-    </div>
-  );
-}
-
 function SettingsView({ settings, onUpdate, onClearData, accent }) {
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="animate-fadeslide pb-4 pt-5">
+    <div className="animate-fadeslide pb-4">
+      <ScreenHeader icon={Settings} title="Settings" subtitle="Profile, theme, and data" accent={accent} />
+
       <div className="mx-5 mb-5 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
         <img src="./logo.png" alt="Universal" className="w-10 h-10" />
         <div>
@@ -835,54 +637,74 @@ function SettingsView({ settings, onUpdate, onClearData, accent }) {
         </div>
       </div>
 
-      <div className="mx-5">
-        <CollapsibleSection title="Profile" icon={User}>
-          <ProfileForm settings={settings} accent={accent} onSave={(patch) => onUpdate({ ...settings, ...patch })} />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Accent color" icon={Palette}>
-          <div className="grid grid-cols-3 gap-2.5">
-            {Object.entries(ACCENTS).map(([key, acc]) => (
-              <button
-                key={key} onClick={() => onUpdate({ ...settings, accent: key })}
-                className="flex flex-col items-center gap-2 py-3 rounded-2xl border bg-zinc-900"
-                style={{ borderColor: settings.accent === key ? acc.hex : "rgb(39 39 42)" }}
-              >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: acc.hex }}>
-                  {settings.accent === key && <Check size={14} className="text-zinc-950" />}
-                </div>
-                <span className="text-[11px] font-medium text-zinc-400">{acc.name}</span>
-              </button>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-        <div className="mb-5">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+      <div className="mx-5 mb-5">
+        <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-2">Profile</p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-zinc-950" style={{ backgroundColor: accent.hex }}>
+              {(settings.name || "?").charAt(0).toUpperCase()}
+            </div>
             <div>
-              <p className="text-sm font-semibold text-zinc-100">Mock notifications</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Simulated reminders for due events</p>
+              <p className="text-sm font-bold text-zinc-100">{settings.name || "Your name"}</p>
+              <p className="text-xs text-zinc-500">{settings.role}</p>
             </div>
-            <ToggleSwitch checked={settings.notifications} onChange={(v) => onUpdate({ ...settings, notifications: v })} accent={accent} />
           </div>
+          <label className="text-xs text-zinc-500 font-medium">Name</label>
+          <input
+            value={settings.name} onChange={(e) => onUpdate({ ...settings, name: e.target.value })}
+            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 -mt-2"
+          />
+          <label className="text-xs text-zinc-500 font-medium">Role</label>
+          <input
+            value={settings.role} onChange={(e) => onUpdate({ ...settings, role: e.target.value })}
+            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 -mt-2"
+          />
         </div>
+      </div>
 
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-2">Data</p>
-          {!confirming ? (
-            <button onClick={() => setConfirming(true)} className="w-full py-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-semibold">
-              Clear local storage
-            </button>
-          ) : (
-            <div className="bg-zinc-900 border border-rose-500/30 rounded-2xl p-4">
-              <p className="text-xs text-zinc-400 mb-3">This erases all events, tasks, and notes on this device. This can't be undone.</p>
-              <div className="flex gap-2">
-                <button onClick={() => setConfirming(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-semibold">Cancel</button>
-                <button onClick={() => { onClearData(); setConfirming(false); }} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-zinc-950 text-sm font-bold">Confirm</button>
+      <div className="mx-5 mb-5">
+        <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-2 flex items-center gap-1.5"><Palette size={12} /> Accent color</p>
+        <div className="grid grid-cols-3 gap-2.5">
+          {Object.entries(ACCENTS).map(([key, acc]) => (
+            <button
+              key={key} onClick={() => onUpdate({ ...settings, accent: key })}
+              className="flex flex-col items-center gap-2 py-3 rounded-2xl border bg-zinc-900"
+              style={{ borderColor: settings.accent === key ? acc.hex : "rgb(39 39 42)" }}
+            >
+              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: acc.hex }}>
+                {settings.accent === key && <Check size={14} className="text-zinc-950" />}
               </div>
-            </div>
-          )}
+              <span className="text-[11px] font-medium text-zinc-400">{acc.name}</span>
+            </button>
+          ))}
         </div>
+      </div>
+
+      <div className="mx-5 mb-5">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-zinc-100">Mock notifications</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Simulated reminders for due events</p>
+          </div>
+          <ToggleSwitch checked={settings.notifications} onChange={(v) => onUpdate({ ...settings, notifications: v })} accent={accent} />
+        </div>
+      </div>
+
+      <div className="mx-5">
+        <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-2">Data</p>
+        {!confirming ? (
+          <button onClick={() => setConfirming(true)} className="w-full py-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-400 text-sm font-semibold">
+            Clear local storage
+          </button>
+        ) : (
+          <div className="bg-zinc-900 border border-rose-500/30 rounded-2xl p-4">
+            <p className="text-xs text-zinc-400 mb-3">This erases all events, tasks, and notes on this device. This can't be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirming(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-semibold">Cancel</button>
+              <button onClick={() => { onClearData(); setConfirming(false); }} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-zinc-950 text-sm font-bold">Confirm</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -926,21 +748,9 @@ export default function App() {
   const [notes, setNotes] = usePersistentState("universal.notes", INITIAL_NOTES);
   const [tasks, setTasks] = usePersistentState("universal.tasks", INITIAL_TASKS);
   const [settings, setSettings] = usePersistentState("universal.settings", INITIAL_SETTINGS);
-  const [categories, setCategories] = usePersistentState("universal.categories", DEFAULT_CATEGORIES);
   const [selectedDate, setSelectedDate] = useState(null);
   const [toast, setToast] = useState("");
   const [showSplash, setShowSplash] = useState(true);
-
-  // One-time migration for anyone with an older save that used "role" instead of "aim".
-  useEffect(() => {
-    if (settings.role && !settings.aim) {
-      setSettings((prev) => {
-        const { role, ...rest } = prev;
-        return { ...rest, aim: role };
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setShowSplash(false), 900);
@@ -972,16 +782,6 @@ export default function App() {
     setToast("Event deleted");
   }
 
-  function addCategory(name, color) {
-    setCategories((prev) => [...prev, { id: nextId(), name, color }]);
-  }
-  function renameCategory(id, name) {
-    setCategories((prev) => prev.map((c) => c.id === id ? { ...c, name } : c));
-  }
-  function deleteCategory(id) {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-  }
-
   function addNote(key, text) {
     setNotes((prev) => ({ ...prev, [key]: [...(prev[key] || []), { id: nextId(), text }] }));
   }
@@ -990,13 +790,7 @@ export default function App() {
   }
 
   function addTask(quadrant, text) {
-    setTasks((prev) => ({ ...prev, [quadrant]: [...prev[quadrant], { id: nextId(), text, done: false }] }));
-  }
-  function toggleTaskDone(quadrant, id) {
-    setTasks((prev) => ({
-      ...prev,
-      [quadrant]: prev[quadrant].map((t) => t.id === id ? { ...t, done: !t.done } : t),
-    }));
+    setTasks((prev) => ({ ...prev, [quadrant]: [...prev[quadrant], { id: nextId(), text }] }));
   }
   function moveTask(fromKey, toKey, id) {
     setTasks((prev) => {
@@ -1033,19 +827,17 @@ export default function App() {
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.6; }
       `}</style>
 
-      <div className="flex-1 overflow-y-auto" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <StatusBar now={now} />
+
+      <div className="flex-1 overflow-y-auto">
         {active === "calendar" && (
           <CalendarView notes={notes} events={events} accent={accent} onOpenDay={setSelectedDate} />
         )}
         {active === "events" && (
-          <EventsView
-            events={events} now={now} accent={accent} categories={categories}
-            onAdd={addEvent} onComplete={completeEvent} onDelete={deleteEvent}
-            onAddCategory={addCategory} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
-          />
+          <EventsView events={events} now={now} accent={accent} onAdd={addEvent} onComplete={completeEvent} onDelete={deleteEvent} />
         )}
         {active === "tasks" && (
-          <TasksView tasks={tasks} accent={accent} onAdd={addTask} onMove={moveTask} onDelete={deleteTask} onToggleDone={toggleTaskDone} />
+          <TasksView tasks={tasks} accent={accent} onAdd={addTask} onMove={moveTask} onDelete={deleteTask} />
         )}
         {active === "settings" && (
           <SettingsView settings={settings} onUpdate={setSettings} onClearData={clearAllData} accent={accent} />
@@ -1056,7 +848,7 @@ export default function App() {
 
       {selectedDate && (
         <DateSheet
-          date={selectedDate} notes={notes} events={events} categories={categories}
+          date={selectedDate} notes={notes} events={events}
           onAddNote={addNote} onDeleteNote={deleteNote}
           onClose={() => setSelectedDate(null)} accent={accent}
         />
