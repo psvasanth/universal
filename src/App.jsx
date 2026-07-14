@@ -218,9 +218,11 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
     return events.some((e) => e.status !== "done" && sameDay(new Date(e.due), d));
   }
 
+  const rowCount = cells.length / 7;
+
   return (
-    <div className="animate-fadeslide pt-5">
-      <div className="mx-5 mb-4 flex items-center justify-between">
+    <div className="animate-fadeslide pt-5 h-full flex flex-col">
+      <div className="mx-5 mb-4 flex items-center justify-between shrink-0">
         <button onClick={() => shiftMonth(-1)} className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center active:scale-95 transition">
           <ChevronLeft size={18} className="text-zinc-300" />
         </button>
@@ -230,15 +232,18 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
         </button>
       </div>
 
-      <div className="mx-5 grid grid-cols-7 gap-y-1 mb-1">
+      <div className="mx-5 grid grid-cols-7 gap-y-1 mb-1 shrink-0">
         {WEEKDAYS.map((w, i) => (
           <div key={i} className="text-center text-[11px] font-semibold text-zinc-600 py-1">{w}</div>
         ))}
       </div>
 
-      <div className="mx-5 grid grid-cols-7 gap-1.5 pb-6">
+      <div
+        className="mx-5 mb-5 grid grid-cols-7 gap-1.5 flex-1 min-h-0"
+        style={{ gridTemplateRows: `repeat(${rowCount}, 1fr)` }}
+      >
         {cells.map((d, i) => {
-          if (!d) return <div key={i} className="aspect-square" />;
+          if (!d) return <div key={i} />;
           const isToday = sameDay(d, today);
           const hasNote = dayHasNote(d);
           const hasEvent = dayHasEvent(d);
@@ -246,18 +251,18 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
             <button
               key={i}
               onClick={() => onOpenDay(d)}
-              className="aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5 border transition active:scale-95"
+              className="h-full rounded-xl flex flex-col items-center justify-center gap-1 border transition active:scale-95"
               style={{
                 backgroundColor: isToday ? accent.soft : "rgb(24 24 27)",
                 borderColor: isToday ? accent.hex : "rgb(39 39 42)",
               }}
             >
-              <span className={`text-sm font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
+              <span className={`text-base font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
                 {d.getDate()}
               </span>
-              <div className="flex gap-0.5 h-1">
-                {hasNote && <span className="w-1 h-1 rounded-full bg-blue-400" />}
-                {hasEvent && <span className="w-1 h-1 rounded-full" style={{ backgroundColor: accent.hex }} />}
+              <div className="flex gap-0.5 h-1.5">
+                {hasNote && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+                {hasEvent && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent.hex }} />}
               </div>
             </button>
           );
