@@ -238,35 +238,37 @@ function CalendarView({ notes, events, accent, onOpenDay }) {
         ))}
       </div>
 
-      <div
-        className="mx-5 mb-5 grid grid-cols-7 gap-1.5 flex-1 min-h-0"
-        style={{ gridTemplateRows: `repeat(${rowCount}, 1fr)` }}
-      >
-        {cells.map((d, i) => {
-          if (!d) return <div key={i} />;
-          const isToday = sameDay(d, today);
-          const hasNote = dayHasNote(d);
-          const hasEvent = dayHasEvent(d);
-          return (
-            <button
-              key={i}
-              onClick={() => onOpenDay(d)}
-              className="h-full rounded-xl flex flex-col items-center justify-center gap-1 border transition active:scale-95"
-              style={{
-                backgroundColor: isToday ? accent.soft : "rgb(24 24 27)",
-                borderColor: isToday ? accent.hex : "rgb(39 39 42)",
-              }}
-            >
-              <span className={`text-base font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
-                {d.getDate()}
-              </span>
-              <div className="flex gap-0.5 h-1.5">
-                {hasNote && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                {hasEvent && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent.hex }} />}
-              </div>
-            </button>
-          );
-        })}
+      <div className="mx-5 mb-5 flex-1 min-h-0 flex items-center">
+        <div
+          className="grid grid-cols-7 gap-1.5 w-full"
+          style={{ gridTemplateRows: `repeat(${rowCount}, minmax(0, 72px))` }}
+        >
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} />;
+            const isToday = sameDay(d, today);
+            const hasNote = dayHasNote(d);
+            const hasEvent = dayHasEvent(d);
+            return (
+              <button
+                key={i}
+                onClick={() => onOpenDay(d)}
+                className="h-full rounded-xl flex flex-col items-center justify-center gap-1 border transition active:scale-95"
+                style={{
+                  backgroundColor: isToday ? accent.soft : "rgb(24 24 27)",
+                  borderColor: isToday ? accent.hex : "rgb(39 39 42)",
+                }}
+              >
+                <span className={`text-base font-semibold ${isToday ? "" : "text-zinc-300"}`} style={isToday ? { color: accent.hex } : {}}>
+                  {d.getDate()}
+                </span>
+                <div className="flex gap-0.5 h-1.5">
+                  {hasNote && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+                  {hasEvent && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent.hex }} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
